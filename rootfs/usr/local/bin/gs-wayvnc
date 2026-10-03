@@ -1,0 +1,3 @@
+#!/bin/sh
+gs-wait-wayland || exit 1
+exec wayvnc --config "$HOME/.config/wayvnc/config"

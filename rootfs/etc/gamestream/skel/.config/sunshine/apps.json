@@ -1,0 +1,39 @@
+{
+  "env": {},
+  "apps": [
+    {
+      "name": "Desktop",
+      "image-path": "desktop.png",
+      "prep-cmd": [
+        {
+          "do": "gs-set-resolution",
+          "undo": "gs-set-resolution reset"
+        }
+      ]
+    },
+    {
+      "name": "Steam Big Picture",
+      "image-path": "steam.png",
+      "prep-cmd": [
+        {
+          "do": "gs-set-resolution",
+          "undo": "gs-set-resolution reset"
+        }
+      ],
+      "detached": [
+        "setsid steam steam://open/bigpicture"
+      ]
+    },
+    {
+      "name": "RetroArch",
+      "image-path": "desktop.png",
+      "prep-cmd": [
+        {
+          "do": "gs-set-resolution",
+          "undo": "gs-set-resolution reset"
+        }
+      ],
+      "cmd": "retroarch -f"
+    }
+  ]
+}

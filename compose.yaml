@@ -1,0 +1,43 @@
+# TrueNAS custom app (Apps → Discover Apps → ⋮ → Install via YAML)
+# Az image-et a GitHub Actions építi: ghcr.io/csaki89/amd-game-stream
+services:
+  gamestream:
+    image: ghcr.io/csaki89/amd-game-stream:latest
+    pull_policy: always         # minden indításkor a legfrissebb image
+    restart: unless-stopped
+    network_mode: host          # Sunshine: TCP 47984-47990, 48010 / UDP 47998-48000; noVNC: 31100
+    shm_size: 2gb               # a Steam Chromium-alapú felülete a 64 MB-os alappal összeomlik
+    deploy:
+      resources:
+        limits:
+          cpus: "16"            # max. 16 szálnyi CPU-idő (mint a TrueNAS appoknál)
+          memory: 16G           # felső korlát, nem foglalás (a /dev/shm is ebbe számít)
+    security_opt:
+      - seccomp:unconfined      # Steam pressure-vessel (Proton) user namespace-t használ
+      - apparmor:unconfined
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128   # ÁTÍRANDÓ: CSAK a kiválasztott GPU render node-ja, azonos néven
+      - /dev/uinput:/dev/uinput
+      - /dev/uhid:/dev/uhid
+    device_cgroup_rules:
+      - "c 13:* rmw"            # /dev/input/event* – a Sunshine virtuális kontrollerei
+    volumes:
+      - /mnt/<pool>/<útvonal>/home:/home/gamer          # ÁTÍRANDÓ: a desktop home-ja (perzisztens)
+      - /mnt/<pool>/<útvonal>/games:/mnt/games          # ÁTÍRANDÓ: Steam-könyvtár
+      - /mnt/<pool>/<útvonal>/roms:/mnt/roms:ro         # ÁTÍRANDÓ: RomM ROM-könyvtár, csak olvasva
+      - /dev/input:/dev/input
+      - /run/udev:/run/udev:ro
+    environment:
+      TZ: Europe/Budapest
+      PUID: "568"                         # apps – a TrueNAS appok felhasználója
+      PGID: "568"                         # apps – írási jog a gaming mappákon ACL-ből (lásd README)
+      GPU_RENDER_NODE: /dev/dri/renderD128   # ÁTÍRANDÓ: ugyanaz, mint fent a devices-ban
+      GPU_PCI: ""                         # opcionális: a GPU PCI-címe (pl. 0000:03:00.0) – ha meg van adva, indításkor ellenőrzi
+      SUNSHINE_USER: admin
+      SUNSHINE_PASS: "valtoztasd-meg"     # minden indításkor ebből állítva
+      VNC_PASSWORD: ""                    # üres = hitelesítés nélkül
+      NOVNC_PORT: "31100"
+      KEYBOARD_LAYOUT: hu
+      DISPLAY_WIDTH: "1920"
+      DISPLAY_HEIGHT: "1080"
+      DISPLAY_REFRESH: "60"

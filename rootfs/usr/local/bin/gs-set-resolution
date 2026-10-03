@@ -1,0 +1,10 @@
+#!/bin/sh
+# Felbontás állítása a headless kimeneten.
+# Sunshine-ből hívva a kliens értékeit veszi, "reset" argumentummal az alapértékre áll vissza.
+OUT="${GS_OUTPUT:-HEADLESS-1}"
+if [ "$1" = "reset" ] || [ -z "$SUNSHINE_CLIENT_WIDTH" ]; then
+  W=${DISPLAY_WIDTH:-1920}; H=${DISPLAY_HEIGHT:-1080}; R=${DISPLAY_REFRESH:-60}
+else
+  W=$SUNSHINE_CLIENT_WIDTH; H=$SUNSHINE_CLIENT_HEIGHT; R=${SUNSHINE_CLIENT_FPS:-60}
+fi
+exec wlr-randr --output "$OUT" --custom-mode "${W}x${H}@${R}Hz"

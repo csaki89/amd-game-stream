@@ -1,0 +1,15 @@
+#!/bin/sh
+# romm-sync watch indítása. Párosítás nélkül, vagy ha a RetroArch-konfig még nem jó
+# (pl. network_cmd_enable ki van kapcsolva), nem omlik össze: vár, és később újrapróbálja.
+CFG="${XDG_CONFIG_HOME:-$HOME/.config}/romm-retroarch-sync/config.ini"
+while [ ! -f "$CFG" ]; do
+  echo "[romm-sync] nincs párosítva ($CFG hiányzik) – 'romm-sync pair' után indul"
+  sleep 300
+done
+while true; do
+  romm-sync watch
+  rc=$?
+  [ "$rc" -eq 0 ] && exit 0
+  echo "[romm-sync] kilépett (kód: $rc) – 5 perc múlva újrapróbálja (pl. retroarch.cfg: network_cmd_enable = \"true\")"
+  sleep 300
+done

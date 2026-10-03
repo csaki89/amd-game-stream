@@ -1,0 +1,19 @@
+#!/bin/sh
+# labwc headless módban, csak a megadott render node-on.
+rm -f "$XDG_RUNTIME_DIR/wayland-0" "$XDG_RUNTIME_DIR/wayland-0.lock" /tmp/.X0-lock /tmp/.X11-unix/X0 2>/dev/null
+unset WAYLAND_DISPLAY DISPLAY
+
+# libinput: a Sunshine virtuális egér/billentyűzet/gamepad eszközeihez kell.
+# Hibakereséshez GS_LIBINPUT=0 kikapcsolja (ilyenkor csak a VNC-s bevitel működik).
+if [ "${GS_LIBINPUT:-1}" = 1 ]; then
+  export WLR_BACKENDS=headless,libinput
+else
+  export WLR_BACKENDS=headless
+fi
+export WLR_HEADLESS_OUTPUTS=1
+export WLR_LIBINPUT_NO_DEVICES=1
+export LIBSEAT_BACKEND=noop
+export WLR_RENDER_DRM_DEVICE="$GPU_RENDER_NODE"
+export XKB_DEFAULT_LAYOUT="${KEYBOARD_LAYOUT:-hu}"
+
+exec labwc

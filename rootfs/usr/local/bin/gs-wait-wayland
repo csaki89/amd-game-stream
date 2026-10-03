@@ -1,0 +1,8 @@
+#!/bin/sh
+# Vár, amíg a labwc Wayland-socketje elkészül (max. 60 mp).
+i=0
+while [ ! -S "$XDG_RUNTIME_DIR/${WAYLAND_DISPLAY:-wayland-0}" ]; do
+  i=$((i+1))
+  [ "$i" -gt 120 ] && { echo "[gamestream] a Wayland-socket nem jött létre" >&2; exit 1; }
+  sleep 0.5
+done

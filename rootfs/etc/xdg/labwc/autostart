@@ -1,0 +1,6 @@
+# labwc indításkor futtatja. Felülírható: ~/.config/labwc/autostart
+gs-set-resolution reset
+gs-trust-desktop
+lxqt-panel &
+pcmanfm-qt --desktop &
+lxqt-notificationd &

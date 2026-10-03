@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /opt/noVNC/utils/novnc_proxy --listen "${NOVNC_PORT:-31100}" --vnc 127.0.0.1:5900 --web /opt/noVNC

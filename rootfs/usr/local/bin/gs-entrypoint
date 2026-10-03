@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# gamestream belépési pont: root-ként előkészít mindent, majd átadja a supervisordnak.
+set -euo pipefail
+
+log() { echo "[gamestream] $*"; }
+die() { echo "[gamestream] HIBA: $*" >&2; exit 1; }
+
+: "${PUID:=568}" "${PGID:=568}"
+: "${GPU_RENDER_NODE:=/dev/dri/renderD128}" "${GPU_PCI:=}"
+: "${NOVNC_PORT:=31100}" "${KEYBOARD_LAYOUT:=hu}"
+: "${DISPLAY_WIDTH:=1920}" "${DISPLAY_HEIGHT:=1080}" "${DISPLAY_REFRESH:=60}"
+: "${SUNSHINE_USER:=admin}" "${SUNSHINE_PASS:=}" "${VNC_PASSWORD:=}" "${USER_PASSWORD:=}"
+
+USERNAME=gamer
+HOME_DIR=/home/$USERNAME
+RUNTIME_DIR=/run/user/$PUID
+
+# ---------------------------------------------------------------- 1. GPU-ellenőrzés
+# Hangos hiba csendes llvmpipe / szoftveres kódolás helyett.
+[ -c "$GPU_RENDER_NODE" ] || die "a render node nem létezik a konténerben: $GPU_RENDER_NODE"
+major=$((16#$(stat -c %t "$GPU_RENDER_NODE")))
+minor=$((16#$(stat -c %T "$GPU_RENDER_NODE")))
+[ "$(basename "$GPU_RENDER_NODE")" = "renderD$minor" ] \
+  || die "név/minor eltérés: $GPU_RENDER_NODE minor száma $minor – a node-ot a hoston érvényes nevén kell beadni (lehet, hogy bootkor átszámozódott)"
+pci=$(basename "$(readlink -f "/sys/dev/char/$major:$minor/device")")
+if [ -n "$GPU_PCI" ] && [ "$pci" != "$GPU_PCI" ]; then
+  die "rossz kártya: $GPU_RENDER_NODE = $pci, várt: $GPU_PCI"
+fi
+log "GPU rendben: $GPU_RENDER_NODE -> $pci"
+
+# ---------------------------------------------------------------- 2. Felhasználó, csoportok
+getent group "$PGID" >/dev/null || groupadd -g "$PGID" "$USERNAME"
+id "$USERNAME" >/dev/null 2>&1 || useradd -u "$PUID" -g "$PGID" -d "$HOME_DIR" -M -s /bin/bash "$USERNAME"
+
+add_gid() {
+  local gid=$1 name
+  [ -n "$gid" ] && [ "$gid" != 0 ] || return 0
+  getent group "$gid" >/dev/null || groupadd -g "$gid" "host$gid"
+  name=$(getent group "$gid" | cut -d: -f1)
+  usermod -aG "$name" "$USERNAME"
+}
+# A render node csoportja (ha nincs megadva, magából az eszközből)
+RENDER_GID=${RENDER_GID:-$(stat -c %g "$GPU_RENDER_NODE")}
+add_gid "$RENDER_GID"
+# A host input-csoportja (a Sunshine virtuális eszközeihez); ha nincs megadva, a meglévő eventekből
+INPUT_GID=${INPUT_GID:-$(stat -c %g /dev/input/event* 2>/dev/null | sort -u | grep -vx 0 | head -n1 || true)}
+add_gid "$INPUT_GID"
+usermod -aG wheel "$USERNAME"
+
+if [ -n "$USER_PASSWORD" ]; then
+  echo "$USERNAME:$USER_PASSWORD" | chpasswd
+else
+  passwd -l "$USERNAME" >/dev/null
+  log "sudo kikapcsolva (nincs USER_PASSWORD) – root: docker exec a hostról"
+fi
+
+# ---------------------------------------------------------------- 3. Eszközök (konténer-saját node-ok)
+for d in /dev/uinput /dev/uhid; do
+  if [ -c "$d" ]; then chgrp "$PGID" "$d"; chmod 0660 "$d"; else log "figyelem: $d nem elérhető"; fi
+done
+
+# ---------------------------------------------------------------- 4. Runtime dir + home
+mkdir -p "$RUNTIME_DIR"; chown "$PUID:$PGID" "$RUNTIME_DIR"; chmod 0700 "$RUNTIME_DIR"
+mkdir -p "$HOME_DIR"; chown "$PUID:$PGID" "$HOME_DIR"
+
+if [ ! -f "$HOME_DIR/.gamestream-init" ]; then
+  log "első indítás: alapbeállítások másolása a home-ba"
+  cp -r --update=none /etc/gamestream/skel/. "$HOME_DIR/"
+  chown -R "$PUID:$PGID" "$HOME_DIR"
+  touch "$HOME_DIR/.gamestream-init"; chown "$PUID:$PGID" "$HOME_DIR/.gamestream-init"
+fi
+
+# Asztali parancsikonok: a gamestream sajátjait minden indításkor frissíti (+x = a PCManFM megbízhatónak tekinti),
+# a felhasználó által hozzáadott egyéb ikonokhoz nem nyúl
+mkdir -p "$HOME_DIR/Desktop"; chown "$PUID:$PGID" "$HOME_DIR/Desktop"
+for f in /etc/gamestream/skel/Desktop/*.desktop; do
+  install -m 0755 -o "$PUID" -g "$PGID" "$f" "$HOME_DIR/Desktop/"
+done
+
+as_user() { runuser -u "$USERNAME" -- env HOME="$HOME_DIR" XDG_RUNTIME_DIR="$RUNTIME_DIR" "$@"; }
+
+# ---------------------------------------------------------------- 5. Sunshine
+SUN_DIR=$HOME_DIR/.config/sunshine
+CONF=$SUN_DIR/sunshine.conf
+as_user mkdir -p "$SUN_DIR"
+as_user touch "$CONF"
+set_conf() {
+  local k=$1 v=$2
+  if grep -qE "^[[:space:]]*$k[[:space:]]*=" "$CONF"; then
+    sed -i -E "s|^[[:space:]]*$k[[:space:]]*=.*|$k = $v|" "$CONF"
+  else
+    echo "$k = $v" >> "$CONF"
+  fi
+}
+# Ezek minden indításkor kikényszerítve – a többi beállítás a webes felületen szabadon állítható
+set_conf capture wlr
+set_conf encoder vaapi
+set_conf adapter_name "$GPU_RENDER_NODE"
+set_conf origin_web_ui_allowed lan
+chown "$PUID:$PGID" "$CONF"
+
+# Sunshine-alkalmazások: a gamestream sajátjait (Desktop, Steam Big Picture, RetroArch) pótolja, ha hiányoznak.
+# A felhasználó által felvett vagy módosított alkalmazásokhoz nem nyúl.
+as_user python3 - "$SUN_DIR/apps.json" /etc/gamestream/sunshine-apps.json <<'PY_EOF'
+import json, sys
+target, src = sys.argv[1], sys.argv[2]
+base = json.load(open(src))
+try:
+    cur = json.load(open(target))
+except Exception:
+    cur = {}
+cur.setdefault("env", {})
+apps = cur.setdefault("apps", [])
+names = {a.get("name") for a in apps}
+added = [a for a in base["apps"] if a["name"] not in names]
+apps.extend(added)
+json.dump(cur, open(target, "w"), indent=2, ensure_ascii=False)
+print("[gamestream] Sunshine-alkalmazások " + ("pótolva: " + ", ".join(a["name"] for a in added) if added else "rendben"))
+PY_EOF
+
+if [ -n "$SUNSHINE_PASS" ]; then
+  if as_user sunshine --creds "$SUNSHINE_USER" "$SUNSHINE_PASS" >/dev/null 2>&1; then
+    log "Sunshine admin beállítva: $SUNSHINE_USER"
+  else
+    log "figyelem: a Sunshine admin beállítása nem sikerült"
+  fi
+else
+  log "figyelem: SUNSHINE_PASS üres, az admin fiókot a webes felületen kell létrehozni"
+fi
+
+# ---------------------------------------------------------------- 6. wayvnc (csak loopbacken, kifelé a noVNC megy)
+VNC_DIR=$HOME_DIR/.config/wayvnc
+as_user mkdir -p "$VNC_DIR"
+if [ -n "$VNC_PASSWORD" ] && [ ! -f "$VNC_DIR/rsa_key.pem" ]; then
+  as_user ssh-keygen -q -m pem -t rsa -b 4096 -N "" -f "$VNC_DIR/rsa_key.pem"
+fi
+{
+  echo "address=127.0.0.1"
+  echo "port=5900"
+  echo "xkb_layout=$KEYBOARD_LAYOUT"
+  if [ -n "$VNC_PASSWORD" ]; then
+    echo "enable_auth=true"
+    echo "username=$USERNAME"
+    echo "password=$VNC_PASSWORD"
+    echo "rsa_private_key_file=$VNC_DIR/rsa_key.pem"
+  else
+    echo "enable_auth=false"
+  fi
+} > "$VNC_DIR/config"
+chown "$PUID:$PGID" "$VNC_DIR/config"; chmod 0600 "$VNC_DIR/config"
+[ -n "$VNC_PASSWORD" ] && log "VNC: jelszavas" || log "VNC: hitelesítés NÉLKÜL (VNC_PASSWORD üres)"
+
+# ---------------------------------------------------------------- 7. Indítás
+unset SUNSHINE_PASS VNC_PASSWORD USER_PASSWORD
+export HOME=$HOME_DIR USER=$USERNAME LOGNAME=$USERNAME XDG_RUNTIME_DIR=$RUNTIME_DIR
+export DBUS_SESSION_BUS_ADDRESS=unix:path=$RUNTIME_DIR/bus
+export WAYLAND_DISPLAY=wayland-0 DISPLAY=:0 XDG_SESSION_TYPE=wayland XDG_CURRENT_DESKTOP=LXQt:labwc:wlroots
+export QT_QPA_PLATFORM="wayland;xcb" MOZ_ENABLE_WAYLAND=1
+export GPU_RENDER_NODE NOVNC_PORT KEYBOARD_LAYOUT DISPLAY_WIDTH DISPLAY_HEIGHT DISPLAY_REFRESH
+
+log "szolgáltatások indítása (noVNC: :$NOVNC_PORT, Sunshine admin: :47990)"
+exec /usr/bin/supervisord -n -c /etc/supervisord.conf

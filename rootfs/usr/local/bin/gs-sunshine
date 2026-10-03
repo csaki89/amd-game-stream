@@ -1,0 +1,6 @@
+#!/bin/sh
+gs-wait-wayland || exit 1
+# a hanghoz megvárja a pipewire-pulse socketet is (max. 30 mp)
+i=0
+while [ ! -S "$XDG_RUNTIME_DIR/pulse/native" ] && [ "$i" -lt 60 ]; do i=$((i+1)); sleep 0.5; done
+exec sunshine

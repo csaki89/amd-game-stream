@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Sunshine admin
+Exec=firefox https://localhost:47990
+Icon=dev.lizardbyte.app.Sunshine
+Terminal=false

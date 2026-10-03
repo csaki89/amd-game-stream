@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=RetroArch
+Exec=retroarch
+Icon=retroarch
+Terminal=false

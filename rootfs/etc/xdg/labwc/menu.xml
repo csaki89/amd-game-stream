@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<openbox_menu>
+  <menu id="root-menu" label="">
+    <item label="Terminál"><action name="Execute" command="qterminal" /></item>
+    <item label="Firefox"><action name="Execute" command="firefox" /></item>
+    <item label="Steam"><action name="Execute" command="steam" /></item>
+    <separator />
+    <item label="Újratöltés"><action name="Reconfigure" /></item>
+  </menu>
+</openbox_menu>

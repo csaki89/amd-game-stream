@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<labwc_config>
+  <core>
+    <!-- Az Xwayland (Steam) maradjon életben akkor is, ha épp nincs X-es ablak -->
+    <xwaylandPersistence>yes</xwaylandPersistence>
+  </core>
+</labwc_config>
