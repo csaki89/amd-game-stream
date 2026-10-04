@@ -65,10 +65,9 @@ felbontására állítja a kimenetet, kilépéskor visszaáll az alapra (`DISPLA
 ## RetroArch + RomM mentésszinkron
 
 A ROM-ok csak olvashatóan a `/mnt/roms` alatt (RomM `roms/roms`). A RetroArch előre nincs beállítva,
-core-ok nincsenek előre letöltve. Az első indítás után a RetroArch felületén:
+core-ok nincsenek előre letöltve (az Online Updater a `~/.config/retroarch/cores` mappába tölti őket).
+Az első indítás után a RetroArch felületén:
 
-- **Settings → Directory → Cores**: egy írható mappa a home-ban (pl. `~/.config/retroarch/cores`) –
-  az alapértelmezett `/usr/lib/libretro` nem írható, oda az Online Updater nem tud core-t letölteni.
 - **Settings → Directory → Save Files / Save States**: egy-egy mappa a home-ban – a ROM-mappa csak olvasható.
 - **Settings → Network → Network Commands**: be – erre figyel a szinkron.
 - **Settings → User Interface → Pause when not active**: ki – streaming közben ne álljon meg.

@@ -99,8 +99,9 @@ set_conf adapter_name "$GPU_RENDER_NODE"
 set_conf origin_web_ui_allowed lan
 chown "$PUID:$PGID" "$CONF"
 
-# Sunshine-alkalmazások: a gamestream sajátjait (Desktop, Steam Big Picture, RetroArch) pótolja, ha hiányoznak.
-# A felhasználó által felvett vagy módosított alkalmazásokhoz nem nyúl.
+# Sunshine-alkalmazások: a gamestream sajátjait (Desktop, Steam Big Picture, RetroArch) pótolja, ha hiányoznak,
+# és egy korábbi gamestream-alapértelmezett borítóképet az újra cserél. Amit a felhasználó maga állított be
+# (saját kép, saját alkalmazás), ahhoz nem nyúl.
 as_user python3 - "$SUN_DIR/apps.json" /etc/gamestream/sunshine-apps.json <<'PY_EOF'
 import json, sys
 target, src = sys.argv[1], sys.argv[2]
@@ -111,11 +112,22 @@ except Exception:
     cur = {}
 cur.setdefault("env", {})
 apps = cur.setdefault("apps", [])
-names = {a.get("name") for a in apps}
-added = [a for a in base["apps"] if a["name"] not in names]
-apps.extend(added)
+by_name = {a.get("name"): a for a in apps}
+added, fixed = [], []
+for b in base["apps"]:
+    previous = b.get("gs-previous-images", [])
+    app = {k: v for k, v in b.items() if not k.startswith("gs-")}
+    a = by_name.get(b["name"])
+    if a is None:
+        apps.append(app); added.append(b["name"])
+    elif a.get("image-path") in previous:
+        # csak egy korábbi gamestream-alapértéket cserél; a felhasználó saját képét békén hagyja
+        a["image-path"] = app.get("image-path"); fixed.append(b["name"])
 json.dump(cur, open(target, "w"), indent=2, ensure_ascii=False)
-print("[gamestream] Sunshine-alkalmazások " + ("pótolva: " + ", ".join(a["name"] for a in added) if added else "rendben"))
+msg = []
+if added: msg.append("pótolva: " + ", ".join(added))
+if fixed: msg.append("borítókép frissítve: " + ", ".join(fixed))
+print("[gamestream] Sunshine-alkalmazások " + ("; ".join(msg) if msg else "rendben"))
 PY_EOF
 
 if [ -n "$SUNSHINE_PASS" ]; then

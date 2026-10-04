@@ -33,7 +33,10 @@
           "undo": "gs-set-resolution reset"
         }
       ],
-      "cmd": "retroarch -f"
+      "cmd": "retroarch -f",
+      "gs-previous-images": [
+        "desktop.png"
+      ]
     }
   ]
 }
