@@ -26,7 +26,7 @@
     },
     {
       "name": "RetroArch",
-      "image-path": "desktop.png",
+      "image-path": "/etc/gamestream/retroarch.png",
       "prep-cmd": [
         {
           "do": "gs-set-resolution",
