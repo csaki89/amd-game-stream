@@ -65,10 +65,17 @@ felbontására állítja a kimenetet, kilépéskor visszaáll az alapra (`DISPLA
 ## RetroArch + RomM mentésszinkron
 
 A ROM-ok csak olvashatóan a `/mnt/roms` alatt (RomM `roms/roms`). A RetroArch előre nincs beállítva,
-core-ok nincsenek előre letöltve (az Online Updater a `~/.config/retroarch/cores` mappába tölti őket).
-Az első indítás után a RetroArch felületén:
+core-ok nincsenek előre letöltve. Az Arch RetroArch-csomagja a Core Downloadert elrejti, és a core-mappája
+(`/usr/lib/libretro`) nem írható – ezért első alkalommal (bezárt RetroArch mellett):
 
-- **Settings → Directory → Save Files / Save States**: egy-egy mappa a home-ban – a ROM-mappa csak olvasható.
+```bash
+sudo docker exec -u gamer <konténer> mkdir -p /home/gamer/.config/retroarch/cores
+sudo docker exec -u gamer <konténer> sed -i -e 's|^menu_show_core_updater = .*|menu_show_core_updater = "true"|' -e 's|^libretro_directory = .*|libretro_directory = "~/.config/retroarch/cores"|' /home/gamer/.config/retroarch/retroarch.cfg
+```
+
+Utána a RetroArch felületén:
+
+- A mentések (`~/.config/retroarch/saves`, `states`) alapból a home-ban vannak, ezt nem kell állítani.
 - **Settings → Network → Network Commands**: be – erre figyel a szinkron.
 - **Settings → User Interface → Pause when not active**: ki – streaming közben ne álljon meg.
 
