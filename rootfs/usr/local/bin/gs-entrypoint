@@ -140,6 +140,10 @@ else
   log "figyelem: SUNSHINE_PASS üres, az admin fiókot a webes felületen kell létrehozni"
 fi
 
+# RetroArch: core-mappa + a gamestreamhez szükséges beállítások (a core-ok kiválasztásához nem nyúl)
+as_user mkdir -p "$HOME_DIR/.config/retroarch/cores"
+as_user gs-retroarch-config user "$HOME_DIR/.config/retroarch/retroarch.cfg"
+
 # ---------------------------------------------------------------- 6. wayvnc (csak loopbacken, kifelé a noVNC megy)
 VNC_DIR=$HOME_DIR/.config/wayvnc
 as_user mkdir -p "$VNC_DIR"

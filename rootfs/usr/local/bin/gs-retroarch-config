@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""RetroArch-beállítások a gamestreamhez – a core-ok kiválasztása/letöltése kivételével.
+
+  gs-retroarch-config skeleton            -> /etc/retroarch.cfg (az új felhasználói konfigok alapja)
+  gs-retroarch-config user <retroarch.cfg> -> meglévő felhasználói konfig igazítása (indításkor)
+"""
+import re, sys
+
+# Új konfigok alapértékei (a felhasználó utána szabadon módosíthatja őket)
+DEFAULTS = {
+    "libretro_directory": "~/.config/retroarch/cores",   # írható core-mappa (Arch: /usr/lib/libretro)
+    "menu_show_core_updater": "true",                    # Arch alapból elrejti a Core Downloadert
+    "rgui_browser_directory": "/mnt/roms",               # Load Content a ROM-oknál nyílik
+    "video_driver": "vulkan",                            # RADV; a HW-renderes core-oknak (PSX HW, ParaLLEl) is ez kell
+    "menu_driver": "ozone",
+    "input_joypad_driver": "sdl2",                       # Sunshine virtuális kontrollerei SDL-lel a legmegbízhatóbbak
+    "network_cmd_enable": "true",
+    "network_cmd_port": "55355",
+    "pause_nonactive": "false",
+}
+# Kötelezőek a működéshez (romm-sync, streaming): minden indításkor beállítva
+ENFORCED = ("network_cmd_enable", "network_cmd_port", "pause_nonactive")
+# Meglévő konfigban csak akkor cserélve, ha még az Arch/RetroArch alapértékén áll
+MIGRATE = {
+    "libretro_directory": "/usr/lib/libretro",
+    "rgui_browser_directory": "default",
+}
+
+def load(path):
+    with open(path) as f:
+        return f.read().splitlines()
+
+def set_key(lines, key, value):
+    pat = re.compile(r"^[#\s]*" + re.escape(key) + r"\s*=")
+    out, done = [], False
+    for ln in lines:
+        if pat.match(ln):
+            if not done:
+                out.append(f'{key} = "{value}"'); done = True
+            continue          # duplikált vagy kikommentezett sorok törlése
+        out.append(ln)
+    if not done:
+        out.append(f'{key} = "{value}"')
+    return out
+
+def get_key(lines, key):
+    pat = re.compile(r"^" + re.escape(key) + r'\s*=\s*"?(.*?)"?\s*$')
+    for ln in lines:
+        m = pat.match(ln)
+        if m:
+            return m.group(1)
+    return None
+
+def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == "skeleton":
+        path = "/etc/retroarch.cfg"
+        lines = load(path)
+        for k, v in DEFAULTS.items():
+            lines = set_key(lines, k, v)
+    elif len(sys.argv) == 3 and sys.argv[1] == "user":
+        path = sys.argv[2]
+        try:
+            lines = load(path)
+        except FileNotFoundError:
+            return            # első induláskor a RetroArch maga hozza létre a skeletonból
+        changed = []
+        for k in ENFORCED:
+            if get_key(lines, k) != DEFAULTS[k]:
+                lines = set_key(lines, k, DEFAULTS[k]); changed.append(k)
+        for k, old in MIGRATE.items():
+            if get_key(lines, k) == old:
+                lines = set_key(lines, k, DEFAULTS[k]); changed.append(k)
+                if k == "libretro_directory":
+                    lines = set_key(lines, "menu_show_core_updater", "true"); changed.append("menu_show_core_updater")
+        if not changed:
+            return
+        print("[gamestream] RetroArch-beállítás igazítva: " + ", ".join(changed))
+    else:
+        sys.exit(__doc__)
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+
+if __name__ == "__main__":
+    main()

@@ -64,20 +64,15 @@ felbontására állítja a kimenetet, kilépéskor visszaáll az alapra (`DISPLA
 
 ## RetroArch + RomM mentésszinkron
 
-A ROM-ok csak olvashatóan a `/mnt/roms` alatt (RomM `roms/roms`). A RetroArch előre nincs beállítva,
-core-ok nincsenek előre letöltve. Az Arch RetroArch-csomagja a Core Downloadert elrejti, és a core-mappája
-(`/usr/lib/libretro`) nem írható – ezért első alkalommal (bezárt RetroArch mellett):
+A ROM-ok csak olvashatóan a `/mnt/roms` alatt (RomM `roms/roms`). A RetroArch az image-ben be van állítva
+a gamestreamhez – **csak a core-ok nincsenek előre kiválasztva/letöltve**: ezeket a
+**Main Menu → Online Updater → Core Downloader** tölti le a `~/.config/retroarch/cores` mappába.
 
-```bash
-sudo docker exec -u gamer <konténer> mkdir -p /home/gamer/.config/retroarch/cores
-sudo docker exec -u gamer <konténer> sed -i -e 's|^menu_show_core_updater = .*|menu_show_core_updater = "true"|' -e 's|^libretro_directory = .*|libretro_directory = "~/.config/retroarch/cores"|' /home/gamer/.config/retroarch/retroarch.cfg
-```
-
-Utána a RetroArch felületén:
-
-- A mentések (`~/.config/retroarch/saves`, `states`) alapból a home-ban vannak, ezt nem kell állítani.
-- **Settings → Network → Network Commands**: be – erre figyel a szinkron.
-- **Settings → User Interface → Pause when not active**: ki – streaming közben ne álljon meg.
+Előre beállítva (új konfignál; a felhasználó utána módosíthatja): core-mappa a home-ban, Core Downloader látható,
+Load Content a `/mnt/roms`-nál, Vulkan videódriver, Ozone menü, SDL2 kontroller-driver.
+Minden induláskor kikényszerítve (a működéshez kell): **Network Commands be** (port 55355, erre figyel a
+szinkron) és **Pause when not active ki** (streaming közben ne álljon meg).
+A mentések alapból a `~/.config/retroarch/saves` és `states` mappába kerülnek.
 
 Szinkron párosítása (egyszer; a RomM-ben előtte Client API Token + párosító kód):
 

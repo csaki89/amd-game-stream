@@ -43,7 +43,7 @@ RUN pacman -S --noconfirm --needed qps amdgpu_top mangohud lib32-mangohud lm_sen
 RUN pacman -S --noconfirm --needed steam \
  && rm -rf /var/cache/pacman/pkg/*
 
-# RetroArch (core-ok nélkül: azokat a RetroArch online frissítőjével kell letölteni)
+# RetroArch (core-ok nélkül – azokat a felhasználó választja ki a Core Downloaderrel)
 RUN pacman -S --noconfirm --needed retroarch retroarch-assets-ozone retroarch-assets-xmb libretro-core-info \
  && rm -rf /var/cache/pacman/pkg/*
 
@@ -67,6 +67,7 @@ RUN git clone --depth 1 --branch "$NOVNC_VERSION" https://github.com/novnc/noVNC
 # Saját fájlok: indítóscriptek, supervisord, PipeWire null-sink, első indításkori home-sablon
 COPY rootfs/ /
 RUN chmod +x /usr/local/bin/gs-* \
+ && gs-retroarch-config skeleton \
  && echo '%wheel ALL=(ALL:ALL) ALL' > /etc/sudoers.d/wheel \
  && chmod 0440 /etc/sudoers.d/wheel
 
