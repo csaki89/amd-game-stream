@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Wine/Proton prefix előkészítése a gs-exe-run és a gs-exe-install számára.
+#   - ha még nincs, létrehozza (umu-run "")
+#   - UseTakeFocus=N: a labwc nem adja át a billentyűzetet a WM_TAKE_FOCUS-t kérő Wine-ablakoknak,
+#     enélkül a Windows-programokba nem lehet írni
+#   - opcionálisan: D: meghajtó = <lemez-mappa>, CD-ROM típussal
+# A registryt csak leállt wineserver mellett írja (különben a wineserver kilépéskor felülírná).
+# Használat: gs-exe-prefix <prefix> [lemez-mappa]
+set -uo pipefail
+
+prefix=$1
+media=${2:-}
+logdir=${XDG_STATE_HOME:-$HOME/.local/state}/gs-exe
+mkdir -p "$prefix" "$logdir"
+log=$logdir/$(basename -- "$prefix").log
+
+export WINEPREFIX=$prefix
+export GAMEID=${GAMEID:-umu-default}
+export PROTON_USE_XALIA=${PROTON_USE_XALIA:-0}
+
+# Fut-e wineserver ehhez a prefixhez
+wineserver_busy() {
+  local p
+  for p in $(pgrep -x wineserver 2>/dev/null); do
+    if tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null \
+       | grep -qxF -e "WINEPREFIX=$prefix" -e "WINEPREFIX=$prefix/pfx" -e "WINEPREFIX=$prefix/pfx/"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+wait_wineserver() {
+  local i
+  sleep 3
+  for i in $(seq 60); do
+    wineserver_busy || return 0
+    sleep 1
+  done
+  return 1
+}
+
+# Érték beállítása egy .reg fájl adott kulcsában: set_reg <fájl> <kulcs> <név> <érték>
+set_reg() {
+  python3 -I - "$@" <<'PY_EOF'
+import re, sys, time
+path, key, name, value = sys.argv[1:5]
+k = key.replace("\\", "\\\\")
+line = '"%s"="%s"' % (name, value)
+text = open(path, encoding="utf-8", errors="surrogateescape").read()
+head = re.search(r'^\[' + re.escape(k) + r'\][^\n]*\n', text, re.M)
+if head is None:
+    text = text.rstrip("\n") + "\n\n[%s] %d\n%s\n" % (k, int(time.time()), line)
+else:
+    end = text.find("\n[", head.end())
+    end = len(text) if end < 0 else end
+    section = text[head.end():end]
+    pat = r'^"' + re.escape(name) + r'"=.*$'
+    if re.search(pat, section, re.M):
+        section = re.sub(pat, lambda m: line, section, flags=re.M)
+    else:
+        section = line + "\n" + section
+    text = text[:head.end()] + section + text[end:]
+open(path, "w", encoding="utf-8", errors="surrogateescape").write(text)
+PY_EOF
+}
+
+has_reg() {  # has_reg <fájl> <név> <érték>
+  grep -qF "\"$2\"=\"$3\"" "$1" 2>/dev/null
+}
+
+if [ ! -f "$prefix/user.reg" ]; then
+  notify-send -a "Windows-program" "Proton előkészítése" \
+    "Az első alkalommal több percig is tarthat (Proton és futtatókörnyezet letöltése)." 2>/dev/null || true
+  echo "=== $(date '+%F %T') prefix létrehozása" >> "$log"
+  umu-run "" >> "$log" 2>&1 || { echo "a prefix létrehozása nem sikerült (napló: $log)" >&2; exit 1; }
+  wait_wineserver
+fi
+[ -f "$prefix/user.reg" ] && [ -f "$prefix/system.reg" ] || { echo "a prefix nem jött létre: $prefix" >&2; exit 1; }
+
+need_focus=0; need_cd=0
+has_reg "$prefix/user.reg" UseTakeFocus N || need_focus=1
+if [ -n "$media" ]; then
+  [ "$(readlink -- "$prefix/dosdevices/d:" 2>/dev/null)" = "$media" ] || ln -sfn "$media" "$prefix/dosdevices/d:"
+  has_reg "$prefix/system.reg" d: cdrom || need_cd=1
+fi
+
+if [ $need_focus = 1 ] || [ $need_cd = 1 ]; then
+  if wineserver_busy && ! wait_wineserver; then
+    echo "a prefixben fut egy program, a beállítás a következő indításkor kerül be" >&2
+    exit 0
+  fi
+  [ $need_focus = 1 ] && set_reg "$prefix/user.reg" 'Software\Wine\X11 Driver' UseTakeFocus N
+  [ $need_cd = 1 ]    && set_reg "$prefix/system.reg" 'Software\Wine\Drives' d: cdrom
+fi
+exit 0

@@ -102,6 +102,10 @@ Mappák a `/mnt/games` alatt:
 - `prefixes/default/` – a máshonnan (pl. letöltésekből) indított `.exe`-k közös prefixe
 
 A `<név>` az ISO címkéje, ennek hiányában a fájlnév. Napló: `~/.local/state/gs-exe/<név>.log`.
+
+A `gs-exe-prefix` minden prefixben beállítja a Wine `UseTakeFocus=N` értékét: a labwc a Wine alapértelmezett
+(`WM_TAKE_FOCUS`) fókuszkérésére nem adja át a billentyűzetet, enélkül a Windows-programokba nem lehet írni.
+A Proton `xalia` segédje alapból ki van kapcsolva (`PROTON_USE_XALIA=0`).
 Egy játékhoz tartozó javítások a umu adatbázisából: `GAMEID=<umu-azonosító> gs-exe-run <exe>`.
 
 Korlátok: BIN/CUE lemezkép egyelőre nem támogatott; a régi másolásvédelmek (SafeDisc, SecuROM,

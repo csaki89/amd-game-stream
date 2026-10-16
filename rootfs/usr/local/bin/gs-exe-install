@@ -66,6 +66,7 @@ echo "=== $(date '+%F %T') telepítés: $src" >> "$log"
 
 export WINEPREFIX=$prefix
 export GAMEID=${GAMEID:-umu-default}
+export PROTON_USE_XALIA=${PROTON_USE_XALIA:-0}
 
 # ---------------------------------------------------------------- 2. Lemezkép kibontása
 installer=$src
@@ -95,35 +96,8 @@ case "${src,,}" in
 esac
 
 # ---------------------------------------------------------------- 3. Prefix
-if [ ! -f "$prefix/system.reg" ]; then
-  notify "Proton előkészítése" "az első alkalommal több percig is tarthat"
-  umu-run "" >> "$log" 2>&1 || fail "a prefix létrehozása nem sikerült (napló: $log)"
-  wait_wineserver "$prefix"
-fi
-[ -f "$prefix/system.reg" ] || fail "a prefix nem jött létre: $prefix (napló: $log)"
-
-# D: = a kibontott lemez, CD-ROM típussal (a registry csak leállt wineserver mellett írható)
-if [ -n "$media" ]; then
-  ln -sfn "$media" "$prefix/dosdevices/d:"
-  python3 -I - "$prefix/system.reg" <<'PY_EOF'
-import re, sys, time
-path = sys.argv[1]
-text = open(path, encoding="utf-8", errors="surrogateescape").read()
-head = re.search(r'^\[Software\\\\Wine\\\\Drives\][^\n]*\n', text, re.M)
-if head is None:
-    text = text.rstrip("\n") + "\n\n[Software\\\\Wine\\\\Drives] %d\n\"d:\"=\"cdrom\"\n" % int(time.time())
-else:
-    end = text.find("\n[", head.end())
-    end = len(text) if end < 0 else end
-    section = text[head.end():end]
-    if re.search(r'^"d:"=', section, re.M):
-        section = re.sub(r'^"d:"=.*$', '"d:"="cdrom"', section, flags=re.M)
-    else:
-        section = '"d:"="cdrom"\n' + section
-    text = text[:head.end()] + section + text[end:]
-open(path, "w", encoding="utf-8", errors="surrogateescape").write(text)
-PY_EOF
-fi
+# Létrehozás (ha kell), billentyűzetfókusz-beállítás, és ISO esetén D: = a kibontott lemez, CD-ROM típussal
+gs-exe-prefix "$prefix" "$media" || fail "a prefix előkészítése nem sikerült (napló: $log)"
 
 # ---------------------------------------------------------------- 4. Telepítő
 if [ -z "$installer" ]; then
