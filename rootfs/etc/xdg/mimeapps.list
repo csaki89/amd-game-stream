@@ -1,0 +1,14 @@
+# Alapértelmezett társítások: dupla klikk .exe-n -> futtatás Protonnal, ISO-n -> telepítés
+[Default Applications]
+application/x-ms-dos-executable=gs-exe-run.desktop
+application/x-msdownload=gs-exe-run.desktop
+application/vnd.microsoft.portable-executable=gs-exe-run.desktop
+application/x-cd-image=gs-exe-install.desktop
+application/x-iso9660-image=gs-exe-install.desktop
+
+[Added Associations]
+application/x-ms-dos-executable=gs-exe-run.desktop;gs-exe-install.desktop;
+application/x-msdownload=gs-exe-run.desktop;gs-exe-install.desktop;
+application/vnd.microsoft.portable-executable=gs-exe-run.desktop;gs-exe-install.desktop;
+application/x-cd-image=gs-exe-install.desktop;
+application/x-iso9660-image=gs-exe-install.desktop;

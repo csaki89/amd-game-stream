@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+# A telepítő által létrehozott Windows-parancsikonokból (.lnk) asztali ikonokat készít,
+# amelyek a gs-exe-run-t hívják. A gs-exe-install hívja a telepítés után.
+# Használat: gs-exe-shortcuts <prefix> <asztal-mappa> <.lnk fájl>...
+import os
+import sys
+
+
+def u16(b, o):
+    return int.from_bytes(b[o:o + 2], "little")
+
+
+def u32(b, o):
+    return int.from_bytes(b[o:o + 4], "little")
+
+
+def cstr(b, o, unicode):
+    """Nullával lezárt string a megadott eltolásról."""
+    if unicode:
+        end = o
+        while end + 1 < len(b) and b[end:end + 2] != b"\0\0":
+            end += 2
+        return b[o:end].decode("utf-16-le", "replace")
+    end = b.find(b"\0", o)
+    return b[o:end if end >= 0 else len(b)].decode("cp1252", "replace")
+
+
+def parse_lnk(path):
+    """Visszaadja: (cél Windows-útvonal, argumentumok) vagy None. [MS-SHLLINK] alapján."""
+    try:
+        b = open(path, "rb").read()
+    except OSError:
+        return None
+    if len(b) < 0x4C or u32(b, 0) != 0x4C:
+        return None
+    flags = u32(b, 0x14)
+    off = 0x4C
+    if flags & 0x01:                      # HasLinkTargetIDList
+        off += 2 + u16(b, off)
+    target = None
+    if flags & 0x02:                      # HasLinkInfo
+        li = off
+        li_size = u32(b, li)
+        header = u32(b, li + 4)
+        li_flags = u32(b, li + 8)
+        if li_flags & 0x01:               # VolumeIDAndLocalBasePath
+            if header >= 0x24:
+                target = cstr(b, li + u32(b, li + 28), True)
+            else:
+                target = cstr(b, li + u32(b, li + 16), False)
+        off = li + li_size
+    unicode = bool(flags & 0x80)          # IsUnicode
+    strings = {}
+    for bit, key in ((0x04, "name"), (0x08, "relpath"), (0x10, "workdir"),
+                     (0x20, "args"), (0x40, "icon")):
+        if flags & bit:
+            n = u16(b, off)
+            off += 2
+            size = n * 2 if unicode else n
+            raw = b[off:off + size]
+            strings[key] = raw.decode("utf-16-le" if unicode else "cp1252", "replace")
+            off += size
+    if not target:
+        return None
+    return target, strings.get("args", "")
+
+
+def win_to_unix(prefix, winpath):
+    """C:\\Program Files\\X\\a.exe -> <prefix>/dosdevices/c: alapján valós útvonal (kis-nagybetű tűrő)."""
+    if len(winpath) < 3 or winpath[1] != ":":
+        return None
+    drive = os.path.join(prefix, "dosdevices", winpath[0].lower() + ":")
+    base = os.path.realpath(drive)
+    for part in [p for p in winpath[3:].split("\\") if p]:
+        try:
+            entries = os.listdir(base)
+        except OSError:
+            return None
+        match = next((e for e in entries if e.lower() == part.lower()), None)
+        if match is None:
+            return None
+        base = os.path.join(base, match)
+    return base if os.path.isfile(base) else None
+
+
+def desktop_quote(s):
+    """Desktop Entry spec szerinti idézés az Exec sorba."""
+    for ch in ('\\', '"', '`', '$'):
+        s = s.replace(ch, "\\" + ch)
+    return '"' + s + '"'
+
+
+SKIP = ("unins", "uninstall", "eltávolít", "readme", "manual", "license", "eula")
+
+
+def main():
+    if len(sys.argv) < 3:
+        print("használat: gs-exe-shortcuts <prefix> <asztal-mappa> <.lnk>...", file=sys.stderr)
+        return 2
+    prefix, desktop, lnks = sys.argv[1], sys.argv[2], sys.argv[3:]
+    os.makedirs(desktop, exist_ok=True)
+    done = set()
+    created = 0
+    for lnk in lnks:
+        title = os.path.splitext(os.path.basename(lnk))[0]
+        if any(s in title.lower() for s in SKIP):
+            continue
+        parsed = parse_lnk(lnk)
+        if not parsed:
+            continue
+        target, args = parsed
+        if not target.lower().endswith(".exe") or any(s in target.lower() for s in SKIP):
+            continue
+        exe = win_to_unix(prefix, target)
+        if not exe or exe in done:
+            continue
+        done.add(exe)
+        exec_line = "gs-exe-run " + desktop_quote(exe)
+        if args.strip():
+            exec_line += " " + " ".join(desktop_quote(a) for a in args.split())
+        safe = "".join(c if c.isalnum() or c in "._- " else "_" for c in title).strip() or "jatek"
+        path = os.path.join(desktop, safe + ".desktop")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("[Desktop Entry]\nType=Application\n")
+            f.write(f"Name={title}\nExec={exec_line}\n")
+            f.write(f"Path={os.path.dirname(exe)}\nIcon=applications-games\nTerminal=false\n")
+        os.chmod(path, 0o755)
+        print(path)
+        created += 1
+    return 0 if created else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

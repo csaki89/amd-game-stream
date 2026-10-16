@@ -47,6 +47,11 @@ RUN pacman -S --noconfirm --needed steam \
 RUN pacman -S --noconfirm --needed retroarch retroarch-assets-ozone retroarch-assets-xmb libretro-core-info \
  && rm -rf /var/cache/pacman/pkg/*
 
+# Windows-programok és játékok Steam nélkül: umu-launcher (Proton Steam nélkül, multilib),
+# 7zip (lemezképek kibontása), lxqt-menu-data (az LXQt menü programlistája), libnotify (notify-send)
+RUN pacman -S --noconfirm --needed umu-launcher 7zip lxqt-menu-data libnotify \
+ && rm -rf /var/cache/pacman/pkg/*
+
 # romm-retroarch-saves (RetroArch mentések <-> RomM szinkron)
 RUN python -m venv /opt/romm-sync \
  && /opt/romm-sync/bin/pip install --no-cache-dir "git+https://github.com/csaki89/romm-retroarch-saves.git@${ROMM_SYNC_REF}" \
@@ -68,6 +73,7 @@ RUN git clone --depth 1 --branch "$NOVNC_VERSION" https://github.com/novnc/noVNC
 COPY rootfs/ /
 RUN chmod +x /usr/local/bin/gs-* \
  && gs-retroarch-config skeleton \
+ && update-desktop-database -q /usr/share/applications \
  && echo '%wheel ALL=(ALL:ALL) ALL' > /etc/sudoers.d/wheel \
  && chmod 0440 /etc/sudoers.d/wheel
 

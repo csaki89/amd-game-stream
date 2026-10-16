@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Windows-os .exe futtatása Protonnal, Steam nélkül (umu-run).
+# A prefixet az .exe helyéből választja:
+#   /mnt/games/prefixes/<név>/...  -> a <név> prefix (telepített játék)
+#   /mnt/games/media/<név>/...     -> a <név> prefix (a kibontott lemezről indítva)
+#   bárhol máshol                  -> a közös "default" prefix
+# Használat: gs-exe-run <program.exe> [argumentumok...]
+set -uo pipefail
+
+GAMES=${GS_GAMES_DIR:-/mnt/games}
+
+[ $# -ge 1 ] || { echo "használat: gs-exe-run <program.exe> [argumentumok...]" >&2; exit 2; }
+exe=$(realpath -- "$1") || { echo "nem található: $1" >&2; exit 1; }
+shift
+
+name=default
+case "$exe" in
+  "$GAMES"/prefixes/*/*) rest=${exe#"$GAMES"/prefixes/}; name=${rest%%/*} ;;
+  "$GAMES"/media/*/*)    rest=${exe#"$GAMES"/media/};    name=${rest%%/*} ;;
+esac
+
+prefix=$GAMES/prefixes/$name
+logdir=${XDG_STATE_HOME:-$HOME/.local/state}/gs-exe
+mkdir -p "$prefix" "$logdir"
+log=$logdir/$name.log
+
+if [ ! -f "$prefix/system.reg" ]; then
+  notify-send -a "Windows-program" "Proton előkészítése" \
+    "Az első indítás több percig is tarthat (Proton és futtatókörnyezet letöltése)." 2>/dev/null || true
+fi
+
+export WINEPREFIX=$prefix
+export GAMEID=${GAMEID:-umu-default}
+
+echo "=== $(date '+%F %T') $exe $*" >> "$log"
+cd "$(dirname -- "$exe")" || exit 1
+exec umu-run "$exe" "$@" >> "$log" 2>&1

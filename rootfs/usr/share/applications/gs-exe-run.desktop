@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Windows-program (Proton)
+Comment=Windows-os program futtatása Protonnal, Steam nélkül
+Exec=gs-exe-run %f
+Icon=applications-games
+Terminal=false
+NoDisplay=true
+MimeType=application/x-ms-dos-executable;application/x-msdownload;application/vnd.microsoft.portable-executable;

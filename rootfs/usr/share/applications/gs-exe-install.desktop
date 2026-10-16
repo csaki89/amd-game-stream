@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Telepítés (Proton)
+Comment=Lemezkép vagy telepítő telepítése Protonnal, Steam nélkül
+Exec=gs-exe-install %f
+Icon=system-software-install
+Terminal=false
+NoDisplay=true
+MimeType=application/x-cd-image;application/x-iso9660-image;application/x-ms-dos-executable;application/x-msdownload;application/vnd.microsoft.portable-executable;

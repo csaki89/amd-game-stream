@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# Windows-os játék / program telepítése Protonnal, Steam nélkül.
+#   ISO:  kibontás ide: /mnt/games/media/<név>/ (megmarad), D: = CD-ROM a prefixben, telepítő indítása
+#   .exe: (pl. GOG offline telepítő) közvetlen indítás
+# A prefix: /mnt/games/prefixes/<név>/. A telepítés után a játék parancsikonjaiból asztali ikon lesz.
+# Használat: gs-exe-install <lemezkép.iso | telepítő.exe>
+set -uo pipefail
+
+GAMES=${GS_GAMES_DIR:-/mnt/games}
+DESKTOP_DIR=$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")
+[ -n "$DESKTOP_DIR" ] && [ "$DESKTOP_DIR" != "$HOME" ] || DESKTOP_DIR=$HOME/Desktop
+
+notify() { echo "[gs-exe-install] $1${2:+: $2}"; notify-send -a "Telepítés" "$1" "${2:-}" 2>/dev/null || true; }
+fail()   { notify "Hiba" "$1"; exit 1; }
+
+[ $# -eq 1 ] || { echo "használat: gs-exe-install <lemezkép.iso | telepítő.exe>" >&2; exit 2; }
+src=$(realpath -- "$1") || fail "nem található: $1"
+[ -f "$src" ] || fail "nem fájl: $src"
+
+sanitize() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_' | sed -e 's/__*/_/g' -e 's/^[_.]*//' -e 's/_*$//'; }
+
+# A prefixhez tartozó wineserver leállására vár (a registryt és a parancsikonokat a kilépéskor írja ki)
+wait_wineserver() {
+  local i p busy
+  sleep 3
+  for i in $(seq 60); do
+    busy=0
+    for p in $(pgrep -x wineserver 2>/dev/null); do
+      if tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | grep -qxF -e "WINEPREFIX=$1" -e "WINEPREFIX=$1/pfx" -e "WINEPREFIX=$1/pfx/"; then
+        busy=1
+      fi
+    done
+    [ "$busy" = 0 ] && return 0
+    sleep 1
+  done
+}
+
+list_lnks() {
+  find "$1/drive_c" \( -path '*/Desktop/*' -o -path '*/Start Menu/*' \) -iname '*.lnk' 2>/dev/null | sort
+}
+
+# ---------------------------------------------------------------- 1. Név, forrás
+media=""
+label=""
+case "${src,,}" in
+  *.iso)
+    label=$(blkid -p -o value -s LABEL "$src" 2>/dev/null || true)
+    base=$(basename -- "$src"); base=${base%.*}
+    name=$(sanitize "${label:-$base}")
+    ;;
+  *.exe)
+    base=$(basename -- "$src"); base=${base%.*}
+    base=${base#setup_}; base=${base#setup-}; base=${base#Setup_}
+    case "${base,,}" in setup|install|installer) base=$(basename -- "$(dirname -- "$src")") ;; esac
+    name=$(sanitize "$base")
+    ;;
+  *) fail "csak .iso vagy .exe telepíthető: $src" ;;
+esac
+[ -n "$name" ] || name=jatek
+
+prefix=$GAMES/prefixes/$name
+logdir=${XDG_STATE_HOME:-$HOME/.local/state}/gs-exe
+mkdir -p "$prefix" "$logdir" || fail "nem hozható létre: $prefix"
+log=$logdir/$name.log
+echo "=== $(date '+%F %T') telepítés: $src" >> "$log"
+
+export WINEPREFIX=$prefix
+export GAMEID=${GAMEID:-umu-default}
+
+# ---------------------------------------------------------------- 2. Lemezkép kibontása
+installer=$src
+case "${src,,}" in
+  *.iso)
+    media=$GAMES/media/$name
+    if [ -d "$media" ] && [ -n "$(ls -A "$media" 2>/dev/null)" ]; then
+      notify "Kibontás kihagyva" "már megvan: $media"
+    else
+      notify "Lemezkép kibontása" "$name"
+      mkdir -p "$media" || fail "nem hozható létre: $media"
+      7z x -y -o"$media" -- "$src" >> "$log" 2>&1 || fail "a kibontás nem sikerült (napló: $log)"
+    fi
+    [ -n "$label" ] && printf '%s\n' "$label" > "$media/.windows-label"
+
+    # Telepítő: autorun.inf "open=" sora, különben setup.exe / install.exe
+    installer=""
+    autorun=$(find "$media" -maxdepth 1 -iname autorun.inf -print -quit)
+    if [ -n "$autorun" ]; then
+      rel=$(tr -d '\r' < "$autorun" | grep -i -m1 '^[[:space:]]*open[[:space:]]*=' | cut -d= -f2- | sed -e 's/^[[:space:]]*//')
+      rel=${rel#\"}; rel=${rel%%\"*}; rel=${rel%% *}; rel=${rel//\\//}
+      [ -n "$rel" ] && installer=$(find "$media" -ipath "$media/$rel" -print -quit)
+    fi
+    [ -n "$installer" ] || installer=$(find "$media" -maxdepth 2 -iname setup.exe -print -quit)
+    [ -n "$installer" ] || installer=$(find "$media" -maxdepth 2 -iname install.exe -print -quit)
+    ;;
+esac
+
+# ---------------------------------------------------------------- 3. Prefix
+if [ ! -f "$prefix/system.reg" ]; then
+  notify "Proton előkészítése" "az első alkalommal több percig is tarthat"
+  umu-run "" >> "$log" 2>&1 || fail "a prefix létrehozása nem sikerült (napló: $log)"
+  wait_wineserver "$prefix"
+fi
+[ -f "$prefix/system.reg" ] || fail "a prefix nem jött létre: $prefix (napló: $log)"
+
+# D: = a kibontott lemez, CD-ROM típussal (a registry csak leállt wineserver mellett írható)
+if [ -n "$media" ]; then
+  ln -sfn "$media" "$prefix/dosdevices/d:"
+  python3 -I - "$prefix/system.reg" <<'PY_EOF'
+import re, sys, time
+path = sys.argv[1]
+text = open(path, encoding="utf-8", errors="surrogateescape").read()
+head = re.search(r'^\[Software\\\\Wine\\\\Drives\][^\n]*\n', text, re.M)
+if head is None:
+    text = text.rstrip("\n") + "\n\n[Software\\\\Wine\\\\Drives] %d\n\"d:\"=\"cdrom\"\n" % int(time.time())
+else:
+    end = text.find("\n[", head.end())
+    end = len(text) if end < 0 else end
+    section = text[head.end():end]
+    if re.search(r'^"d:"=', section, re.M):
+        section = re.sub(r'^"d:"=.*$', '"d:"="cdrom"', section, flags=re.M)
+    else:
+        section = '"d:"="cdrom"\n' + section
+    text = text[:head.end()] + section + text[end:]
+open(path, "w", encoding="utf-8", errors="surrogateescape").write(text)
+PY_EOF
+fi
+
+# ---------------------------------------------------------------- 4. Telepítő
+if [ -z "$installer" ]; then
+  notify "Nem találtam telepítőt" "megnyitom a mappát: dupla klikk a telepítő .exe-n"
+  pcmanfm-qt "$media" >/dev/null 2>&1 &
+  exit 0
+fi
+
+before=$(list_lnks "$prefix")
+notify "Telepítő indítása" "$(basename -- "$installer")"
+( cd "$(dirname -- "$installer")" && umu-run "$installer" ) >> "$log" 2>&1
+wait_wineserver "$prefix"
+after=$(list_lnks "$prefix")
+
+# ---------------------------------------------------------------- 5. Asztali ikonok
+mapfile -t new_lnks < <(comm -13 <(printf '%s\n' "$before") <(printf '%s\n' "$after") | sed '/^$/d')
+created=""
+if [ ${#new_lnks[@]} -gt 0 ]; then
+  created=$(gs-exe-shortcuts "$prefix" "$DESKTOP_DIR" "${new_lnks[@]}" 2>> "$log")
+fi
+if [ -n "$created" ]; then
+  while IFS= read -r f; do gio set "$f" metadata::trust true 2>/dev/null || true; done <<< "$created"
+  notify "Telepítés kész" "$name – az ikon az asztalon"
+else
+  notify "Telepítés kész" "nem találtam parancsikont, megnyitom a játék mappáját"
+  pcmanfm-qt "$prefix/drive_c" >/dev/null 2>&1 &
+fi

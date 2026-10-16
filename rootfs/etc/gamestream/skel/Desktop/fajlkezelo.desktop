@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Fájlkezelő
+Exec=pcmanfm-qt
+Icon=system-file-manager
+Terminal=false

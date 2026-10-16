@@ -84,6 +84,29 @@ Utána a `~/.config/romm-retroarch-sync/config.ini`-ben a `saves_dir` és `state
 mint a RetroArch-ban beállított két mappa. A `romm-sync` supervisord-program magától elindul,
 és csak akkor szinkronizál, amikor a RetroArch-ban nincs játék betöltve. Napló: `docker logs`.
 
+## Windows-programok és játékok Steam nélkül
+
+A futtató a `umu-run` (Proton Steam nélkül). Az első indításkor letölti a Protont és a Steam
+futtatókörnyezetét a home-ba (pár száz MB, egyszer).
+
+| Művelet | Mit csinál |
+|---|---|
+| Dupla klikk egy `.exe`-n | `gs-exe-run`: Protonnal indítja |
+| Jobb klikk egy `.iso`-n vagy telepítő `.exe`-n → **Telepítés (Proton)** | `gs-exe-install`: kibontás, prefix, D: CD-meghajtó, telepítő, asztali ikon |
+
+Mappák a `/mnt/games` alatt:
+
+- `prefixes/<név>/` – játékonként külön Wine-prefix (a játék a `drive_c` alá települ)
+- `media/<név>/` – a kibontott lemezkép; a prefixben D: meghajtó, CD-ROM típussal, a lemez címkéjével.
+  **Megmarad**, ha a játék indításkor nem kéri a CD-t, kézzel törölhető.
+- `prefixes/default/` – a máshonnan (pl. letöltésekből) indított `.exe`-k közös prefixe
+
+A `<név>` az ISO címkéje, ennek hiányában a fájlnév. Napló: `~/.local/state/gs-exe/<név>.log`.
+Egy játékhoz tartozó javítások a umu adatbázisából: `GAMEID=<umu-azonosító> gs-exe-run <exe>`.
+
+Korlátok: BIN/CUE lemezkép egyelőre nem támogatott; a régi másolásvédelmek (SafeDisc, SecuROM,
+StarForce) Wine/Proton alatt nem működnek.
+
 ## Hibakeresés
 
 | Tünet | Teendő |
