@@ -58,8 +58,10 @@ A rendszerszintű változtatás helye a `Dockerfile` (a konténer minden indít�
 4. Moonlight → host hozzáadása `<NAS-IP>` → a PIN-t a Sunshine admin felületén add meg
    (a desktopon a „Sunshine admin” ikon, vagy bármelyik böngészőből a LAN-on).
 
-Sunshine-alkalmazások: **Desktop** (a teljes asztal) és **Steam Big Picture**. Mindkettő a kliens
-felbontására állítja a kimenetet, kilépéskor visszaáll az alapra (`DISPLAY_*`).
+Sunshine-alkalmazások: **Desktop** (a teljes asztal), **Steam Big Picture**, **RetroArch** és **Heroic** (GOG).
+Mindegyik a kliens felbontására állítja a kimenetet, kilépéskor visszaáll az alapra (`DISPLAY_*`).
+A Steam Big Picture és a Heroic leválasztva indul (ha már fut, csak előtérbe kerül): a programból kilépve
+a stream az asztallal folytatódik, a Moonlightban kell befejezni.
 
 
 ## RetroArch + RomM mentésszinkron

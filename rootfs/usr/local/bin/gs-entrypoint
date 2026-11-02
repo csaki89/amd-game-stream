@@ -99,7 +99,7 @@ set_conf adapter_name "$GPU_RENDER_NODE"
 set_conf origin_web_ui_allowed lan
 chown "$PUID:$PGID" "$CONF"
 
-# Sunshine-alkalmazások: a gamestream sajátjait (Desktop, Steam Big Picture, RetroArch) pótolja, ha hiányoznak,
+# Sunshine-alkalmazások: a gamestream sajátjait (Desktop, Steam Big Picture, RetroArch, Heroic) pótolja, ha hiányoznak,
 # és egy korábbi gamestream-alapértelmezett borítóképet az újra cserél. Amit a felhasználó maga állított be
 # (saját kép, saját alkalmazás), ahhoz nem nyúl.
 as_user python3 - "$SUN_DIR/apps.json" /etc/gamestream/sunshine-apps.json <<'PY_EOF'

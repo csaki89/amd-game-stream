@@ -37,6 +37,18 @@
       "gs-previous-images": [
         "desktop.png"
       ]
+    },
+    {
+      "name": "Heroic",
+      "prep-cmd": [
+        {
+          "do": "gs-set-resolution",
+          "undo": "gs-set-resolution reset"
+        }
+      ],
+      "detached": [
+        "setsid heroic"
+      ]
     }
   ]
 }
