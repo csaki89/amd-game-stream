@@ -59,6 +59,9 @@ RUN curl -fL -o /tmp/Heroic.pacman \
  && pacman -U --noconfirm /tmp/Heroic.pacman \
  && rm -f /tmp/Heroic.pacman \
  && rm -rf /var/cache/pacman/pkg/* \
+ && test -x /opt/Heroic/heroic \
+ && printf '#!/bin/sh\nexec /opt/Heroic/heroic --no-sandbox "$@"\n' > /usr/local/bin/heroic \
+ && chmod +x /usr/local/bin/heroic \
  && command -v heroic
 
 # romm-retroarch-saves (RetroArch mentések <-> RomM szinkron)
