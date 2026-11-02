@@ -55,9 +55,8 @@ RUN pacman -S --noconfirm --needed umu-launcher 7zip lxqt-menu-data libnotify \
 
 # Heroic Games Launcher (GOG-könyvtár és -felhőmentés) – a GitHub-kiadás tar.xz-e. A .pacman csomag
 # nem telepíthető Archra: az fpm-es függőséglistájában az http-parser már nincs az Arch tárolókban.
-# A többi függőség a csomag .PKGINFO-jából (a libappindicator-gtk3-at az Archban a libappindicator adja).
-RUN pacman -S --noconfirm --needed c-ares ffmpeg gtk3 libevent libvpx libxslt libxss \
-      minizip nss re2 snappy libnotify libappindicator \
+# Függőségek: az AUR heroic-games-launcher-bin csomag depends listája (python, which már fent van).
+RUN pacman -S --noconfirm --needed gtk3 nss alsa-lib libcups nspr at-spi2-core \
  && rm -rf /var/cache/pacman/pkg/* \
  && curl -fL -o /tmp/Heroic.tar.xz \
       "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v${HEROIC_VERSION}/Heroic-${HEROIC_VERSION}-linux-x64.tar.xz" \
