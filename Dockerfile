@@ -53,19 +53,15 @@ RUN pacman -S --noconfirm --needed retroarch retroarch-assets-ozone retroarch-as
 RUN pacman -S --noconfirm --needed umu-launcher 7zip lxqt-menu-data libnotify \
  && rm -rf /var/cache/pacman/pkg/*
 
-# Heroic Games Launcher (GOG-könyvtár és -felhőmentés) – a GitHub-kiadás tar.xz-e. A .pacman csomag
-# nem telepíthető Archra: az fpm-es függőséglistájában az http-parser már nincs az Arch tárolókban.
-# Függőségek: az AUR heroic-games-launcher-bin csomag depends listája (python, which már fent van).
+# Heroic Games Launcher (GOG-könyvtár és -felhőmentés) – a hivatalos Arch csomag a GitHub-kiadásból.
+# A csomag saját függőséglistájában szereplő http-parser nincs az Arch tárolókban, ezért -dd (függőség-
+# ellenőrzés nélkül); a valós függőségek az AUR heroic-games-launcher-bin depends listájából (python, which fent van).
 RUN pacman -S --noconfirm --needed gtk3 nss alsa-lib libcups nspr at-spi2-core \
+ && curl -fL -o /tmp/Heroic.pacman \
+      "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v${HEROIC_VERSION}/Heroic-${HEROIC_VERSION}-linux-x64.pacman" \
+ && pacman -Udd --noconfirm /tmp/Heroic.pacman \
+ && rm -f /tmp/Heroic.pacman \
  && rm -rf /var/cache/pacman/pkg/* \
- && curl -fL -o /tmp/Heroic.tar.xz \
-      "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v${HEROIC_VERSION}/Heroic-${HEROIC_VERSION}-linux-x64.tar.xz" \
- && mkdir -p /opt/Heroic \
- && tar -xJf /tmp/Heroic.tar.xz -C /opt/Heroic --strip-components=1 \
- && rm -f /tmp/Heroic.tar.xz \
- && test -x /opt/Heroic/heroic \
- && printf '#!/bin/sh\nexec /opt/Heroic/heroic --no-sandbox "$@"\n' > /usr/local/bin/heroic \
- && chmod +x /usr/local/bin/heroic \
  && command -v heroic
 
 # romm-retroarch-saves (RetroArch mentések <-> RomM szinkron)
