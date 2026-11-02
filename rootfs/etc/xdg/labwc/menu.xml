@@ -5,6 +5,7 @@
     <item label="Fájlkezelő"><action name="Execute" command="pcmanfm-qt" /></item>
     <item label="Firefox"><action name="Execute" command="firefox" /></item>
     <item label="Steam"><action name="Execute" command="steam" /></item>
+    <item label="Heroic (GOG)"><action name="Execute" command="heroic" /></item>
     <separator />
     <item label="Újratöltés"><action name="Reconfigure" /></item>
   </menu>

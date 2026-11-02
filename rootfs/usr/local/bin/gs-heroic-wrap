@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Heroic wrapper: a Windows-játék prefixét előkészíti (billentyűzetfókusz, lásd gs-exe-prefix), majd indítja a játékot.
+# Heroicban: Beállítások → Játékok alapértelmezett beállításai → Egyéb → Wrapper: gs-heroic-wrap
+# Natív Linux-játéknál (nincs WINEPREFIX) változtatás nélkül indít.
+if [ -n "${WINEPREFIX:-}" ]; then
+  export PROTON_USE_XALIA=${PROTON_USE_XALIA:-0}
+  gs-exe-prefix "$WINEPREFIX" || echo "[gs-heroic-wrap] a prefix előkészítése nem sikerült: $WINEPREFIX" >&2
+fi
+exec "$@"

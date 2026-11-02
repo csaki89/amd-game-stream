@@ -6,6 +6,7 @@ ARG SUNSHINE_VERSION=2026.914.233613
 ARG NOVNC_VERSION=v1.7.0
 ARG WEBSOCKIFY_VERSION=v0.13.0
 ARG ROMM_SYNC_REF=main
+ARG HEROIC_VERSION=2.22.4
 
 # pacman: teljes fájlkészlet (locale-ok miatt), multilib a 32 bites Steam-könyvtárakhoz
 RUN sed -i '/^NoExtract/d' /etc/pacman.conf \
@@ -51,6 +52,14 @@ RUN pacman -S --noconfirm --needed retroarch retroarch-assets-ozone retroarch-as
 # 7zip (lemezképek kibontása), lxqt-menu-data (az LXQt menü programlistája), libnotify (notify-send)
 RUN pacman -S --noconfirm --needed umu-launcher 7zip lxqt-menu-data libnotify \
  && rm -rf /var/cache/pacman/pkg/*
+
+# Heroic Games Launcher (GOG-könyvtár és -felhőmentés) – a hivatalos Arch csomag a GitHub-kiadásból
+RUN curl -fL -o /tmp/Heroic.pacman \
+      "https://github.com/Heroic-Games-Launcher/HeroicGamesLauncher/releases/download/v${HEROIC_VERSION}/Heroic-${HEROIC_VERSION}-linux-x64.pacman" \
+ && pacman -U --noconfirm /tmp/Heroic.pacman \
+ && rm -f /tmp/Heroic.pacman \
+ && rm -rf /var/cache/pacman/pkg/* \
+ && command -v heroic
 
 # romm-retroarch-saves (RetroArch mentések <-> RomM szinkron)
 RUN python -m venv /opt/romm-sync \

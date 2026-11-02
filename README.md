@@ -108,6 +108,24 @@ A `gs-exe-prefix` minden prefixben beállítja a Wine `UseTakeFocus=N` értéké
 A Proton `xalia` segédje alapból ki van kapcsolva (`PROTON_USE_XALIA=0`).
 Egy játékhoz tartozó javítások a umu adatbázisából: `GAMEID=<umu-azonosító> gs-exe-run <exe>`.
 
+### GOG: Heroic Games Launcher
+
+GOG-könyvtár, letöltés, frissítés és **GOG-felhőmentés** (szabályos indításkor és kilépéskor szinkronizál).
+A GOG offline telepítői (`setup_*.exe`) Heroic nélkül is telepíthetők a fenti módon, felhőmentés nélkül.
+
+Első indításkor, egyszer (asztal → *Heroic (GOG)*):
+
+1. Bejelentkezés: *Store-ok kezelése* → GOG.
+2. Beállítások → Általános: alapértelmezett telepítési mappa **`/mnt/games/heroic`**,
+   prefixek mappája **`/mnt/games/heroic/prefixes`** (különben a home-ba települ).
+3. Beállítások → Játékok alapértelmezett beállításai:
+   - Wine: Proton (a *Wine Manager*-ben letölthető GE-Proton), umu bekapcsolva;
+   - Egyéb → **Wrapper: `gs-heroic-wrap`** – enélkül a Heroicból indított Windows-játékokba nem lehet írni
+     (ugyanaz a `UseTakeFocus` beállítás, amit a `gs-exe-prefix` ad; ha a prefix még nem létezik, előbb létrehozza).
+4. Játékonként: Beállítások → *Felhőmentés szinkronizálása* bekapcsolva (csak a GOG-felhőt támogató játékoknál).
+
+A Heroic verzióját a `Dockerfile` `HEROIC_VERSION` értéke rögzíti.
+
 Korlátok: BIN/CUE lemezkép egyelőre nem támogatott; a régi másolásvédelmek (SafeDisc, SecuROM,
 StarForce) Wine/Proton alatt nem működnek.
 
